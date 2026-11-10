@@ -63,6 +63,7 @@ ignore = ["S101", "RUF001", "RUF002", "RUF003", "E501", "ASYNC109"]
 "tests/**" = ["S105", "S106", "S108", "S311", "S104", "S608", "B905"]
 "src/opengenerate/infrastructure/db/*.py" = ["S608"]
 "src/opengenerate/infrastructure/backup.py" = ["S603", "S607", "S608"]
+"src/opengenerate/infrastructure/discovery.py" = ["S314"]
 
 [tool.mypy]
 python_version = "3.12"
