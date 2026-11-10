@@ -1,0 +1,24 @@
+[Unit]
+Description=OpenGenerate v2.0 Telegram Channel Automation Platform
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=opengenerate
+Group=opengenerate
+WorkingDirectory=/opt/opengenerate
+EnvironmentFile=/etc/opengenerate/opengenerate.env
+ExecStartPre=/opt/opengenerate/.venv/bin/python -m opengenerate.bootstrap.cli check-config
+ExecStartPre=/opt/opengenerate/.venv/bin/python -m opengenerate.bootstrap.cli migrate
+ExecStart=/opt/opengenerate/.venv/bin/python -m opengenerate.bootstrap.cli run
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
