@@ -30,6 +30,10 @@ class Conflict(DomainError):
     code = "conflict"
 
 
+class QuotaExceeded(DomainError):
+    code = "quota_exceeded"
+
+
 class InsufficientFunds(DomainError):
     code = "insufficient_funds"
 

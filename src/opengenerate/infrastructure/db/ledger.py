@@ -120,6 +120,19 @@ async def post_ledger_entry(
     return LedgerResult(entry_id, new_balance, replayed=False)
 
 
+async def get_balance(conn: AsyncConnection, user_id: int, currency: Currency) -> int:
+    """Return the current balance of `(user_id, currency)` in minor units (0 if no wallet row exists)."""
+    row = (
+        await conn.execute(
+            text("SELECT balance FROM wallet_balances WHERE user_id = :u AND currency = :c"),
+            {"u": user_id, "c": currency.value},
+        )
+    ).first()
+    if row is None:
+        return 0
+    return int(row._mapping["balance"])
+
+
 @dataclass(frozen=True, slots=True)
 class WalletMismatch:
     user_id: int
