@@ -20,7 +20,7 @@ Before designing and building the platform, all known baseline contradictions fr
 
 | # | Baseline Discrepancy | Evidence & Analysis | Authoritative Resolution for `OpenGenerate` |
 |---|---|---|---|
-| 1 | **Database Engine Contradiction (SQLite vs. Cloudflare D1)** | Legacy README claimed Cloudflare D1 was optional/official, whereas `docs/D1_DECISION.md` established SQLite as the only supported production database and marked D1 unsupported/experimental. Network-bound HTTP D1 queries break strict local transactional locking semantics needed for concurrent payment approvals, wallet ledgering, and publication journaling. | **Cloudflare D1 is officially retired and excluded.** `OpenGenerate` uses a strict relational transactional engine (SQLite in WAL mode with `BEGIN IMMEDIATE` write serialization for single-node VPS deployments, with clean SQLAlchemy/async repository abstractions supporting PostgreSQL for multi-node scaling). |
+| 1 | **Database Engine Contradiction (SQLite vs. Cloudflare D1)** | Legacy README claimed Cloudflare D1 was optional/official, whereas `docs/D1_DECISION.md` established SQLite as the only supported production database and marked D1 unsupported/experimental. Network-bound HTTP D1 queries break strict local transactional locking semantics needed for concurrent payment approvals, wallet ledgering, and publication journaling. | **Cloudflare D1 is officially retired and excluded.** `OpenGenerate` uses **PostgreSQL 16** (decided in Phase 2, [ADR-0003](decisions/0003-database.md); this supersedes the Phase 1 wording that proposed SQLite-WAL). SQLite remains only as the *source format* of the legacy-data ETL. |
 | 2 | **Runtime & Telegram Library Version Drift** | Legacy badges referenced Python 3.12+ and older `python-telegram-bot`, while production Docker used Python 3.13 and `python-telegram-bot==22.8`. | Standardize on **Python 3.12+ (3.13 production container)** with pinned `python-telegram-bot==22.8` (plus direct async `httpx` Bot API transport for cutting-edge endpoints like `sendRichMessage` not yet wrapped by PTB). |
 | 3 | **Deployment Orchestration (`Dockerfile` vs. `docker-compose.yml`)** | Legacy baseline had `deploy/Dockerfile` and `deploy/deploy.sh`, but lacked a first-class `docker-compose.yml`. | Deliver both a hardened multi-stage non-root `deploy/Dockerfile` **and** a production-grade `docker-compose.yml` with explicit named persistent volumes, health checks, and deterministic rollback scripts. |
 | 4 | **Media Handling vs. AI Image Generation** | Legacy system only extracted media associated with source articles (Open Graph, Twitter Cards, JSON-LD, `<article>` media, RSS/Atom enclosures) and never generated AI images. | Preserve and harden **source-associated media extraction, filtering, fallback, and upload** as the core default pipeline. Do not falsely claim AI image generation is active by default; expose optional AI image illustration only behind an explicit, disabled-by-default capability contract if configured. |
@@ -187,7 +187,7 @@ sequenceDiagram
     Bot->>Outbox: Enqueue Receipt Forward to Superadmins
 
     SA->>Bot: Click Approve (s:pay_ok:<payment_id>)
-    Bot->>DB: BEGIN IMMEDIATE TRANSACTION
+    Bot->>DB: BEGIN (single PostgreSQL transaction, row locks)
     DB->>DB: Atomic Claim: UPDATE pay_requests SET status='processing' WHERE status='pending'
     DB->>DB: Revalidate Live Plan Price, Discount Expiry/Cap & User Wallet Balance
     DB->>DB: Increment discounts.used_count (Assert used_count <= max_uses)

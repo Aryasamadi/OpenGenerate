@@ -95,5 +95,5 @@ This document inventories every functional, editorial, financial, administrative
 
 | Item | Classification | Disposition in `OpenGenerate` |
 |---|---|---|
-| Cloudflare D1 Database Adapter | `PRESENT_BUT_UNSUPPORTED_OR_EXPERIMENTAL` | Retired. Replaced by transactional SQLite (WAL) + PostgreSQL-compatible repository layer. |
+| Cloudflare D1 Database Adapter | `PRESENT_BUT_UNSUPPORTED_OR_EXPERIMENTAL` | Retired. Replaced by PostgreSQL 16 (ADR-0003); legacy SQLite is only the ETL source format. |
 | Unknown-Currency Wallet Balances (`legacy`) | `LEGACY_OR_DEPRECATED` | Preserved in `wallet` with `currency='LEGACY'` as non-spendable until explicitly reconciled by superadmin migration tooling. |
