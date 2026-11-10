@@ -1,0 +1,116 @@
+name: OpenGenerate Telegram Smoke Test
+
+run-name: OpenGenerate smoke test (${{ github.ref_name }})
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: opengenerate-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke-test:
+    name: PostgreSQL + Telegram credential check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: og
+          POSTGRES_PASSWORD: og_test_password
+          POSTGRES_DB: opengenerate
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U og -d opengenerate"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      OG_DATABASE_URL: postgresql://og:og_test_password@localhost:5432/opengenerate
+      OG_BOT_TOKEN: ${{ secrets.OG_BOT_TOKEN }}
+      OG_SUPERADMIN_IDS: ${{ secrets.OG_SUPERADMIN_IDS }}
+      OG_ENVIRONMENT: test
+      OG_LOG_JSON: "false"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Verify required GitHub secrets are present
+        shell: bash
+        run: |
+          if [[ -z "$OG_BOT_TOKEN" ]]; then
+            echo "::error::Missing repository secret OG_BOT_TOKEN."
+            exit 1
+          fi
+          if [[ -z "$OG_SUPERADMIN_IDS" ]]; then
+            echo "::error::Missing repository secret OG_SUPERADMIN_IDS."
+            exit 1
+          fi
+          echo "Required Telegram secrets are present."
+
+      - name: Install OpenGenerate
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --no-cache-dir .
+
+      - name: Generate temporary encryption key
+        shell: bash
+        run: |
+          KEY="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
+          echo "::add-mask::$KEY"
+          echo "OG_ENCRYPTION_KEYS=$KEY" >> "$GITHUB_ENV"
+
+      - name: Validate OpenGenerate configuration
+        run: python -m opengenerate check-config
+
+      - name: Apply PostgreSQL migrations
+        run: python -m opengenerate migrate
+
+      - name: Verify Telegram bot token (read-only getMe)
+        run: |
+          python - <<'PY'
+          import asyncio
+          import os
+
+          from pydantic import SecretStr
+
+          from opengenerate.infrastructure.telegram.raw_api import RawBotApi
+
+
+          async def main() -> None:
+              api = RawBotApi(SecretStr(os.environ["OG_BOT_TOKEN"]))
+              try:
+                  bot = await api.get_me()
+                  if not bot.get("is_bot"):
+                      raise SystemExit("Telegram getMe returned an account that is not a bot.")
+                  print(
+                      "Telegram API connection successful: "
+                      f"@{bot.get('username', 'unknown')} (id={bot.get('id', 'unknown')})."
+                  )
+              finally:
+                  await api.aclose()
+
+
+          asyncio.run(main())
+          PY
+
+      - name: Report smoke-test scope
+        run: |
+          echo "PostgreSQL connection and migrations: passed."
+          echo "OpenGenerate configuration: passed."
+          echo "Telegram bot token validation: passed."
+          echo "Note: this workflow does not start Telegram polling; the repository currently has no wired bot-update runtime entrypoint."
