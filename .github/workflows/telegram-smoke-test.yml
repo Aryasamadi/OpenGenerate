@@ -1,6 +1,6 @@
-name: OpenGenerate Telegram Smoke Test
+name: OpenGenerate Telegram Test Runner
 
-run-name: OpenGenerate smoke test (${{ github.ref_name }})
+run-name: OpenGenerate bot test (${{ github.ref_name }})
 
 on:
   workflow_dispatch:
@@ -9,14 +9,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: opengenerate-smoke-${{ github.ref }}
+  group: opengenerate-telegram-test-${{ github.repository }}
   cancel-in-progress: true
 
 jobs:
-  smoke-test:
-    name: PostgreSQL + Telegram credential check
+  telegram-runtime:
+    name: PostgreSQL + Telegram polling runtime
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # GitHub-hosted runners are temporary; this test is deliberately time-bounded.
+    timeout-minutes: 350
 
     services:
       postgres:
@@ -74,43 +75,285 @@ jobs:
           echo "::add-mask::$KEY"
           echo "OG_ENCRYPTION_KEYS=$KEY" >> "$GITHUB_ENV"
 
-      - name: Validate OpenGenerate configuration
-        run: python -m opengenerate check-config
+      - name: Validate configuration and migrate PostgreSQL
+        run: |
+          python -m opengenerate check-config
+          python -m opengenerate migrate
 
-      - name: Apply PostgreSQL migrations
-        run: python -m opengenerate migrate
-
-      - name: Verify Telegram bot token (read-only getMe)
+      - name: Start Telegram polling runtime
+        shell: bash
         run: |
           python - <<'PY'
           import asyncio
           import os
+          import signal
+          from typing import Any
 
-          from pydantic import SecretStr
+          from opengenerate.bootstrap.settings import Settings
+          from opengenerate.domain.errors import NotFound
+          from opengenerate.infrastructure.crypto import FieldCipher
+          from opengenerate.infrastructure.db.engine import Database
+          from opengenerate.infrastructure.outbox import OutboxDispatcher
+          from opengenerate.infrastructure.telegram.raw_api import (
+              RawBotApi,
+              TelegramApiError,
+              TelegramOutboxSender,
+          )
+          from opengenerate.interfaces.telegram.router import TelegramUiRouter
 
-          from opengenerate.infrastructure.telegram.raw_api import RawBotApi
+
+          def keyboard_or_none(markup: Any) -> dict[str, Any] | None:
+              if not isinstance(markup, dict):
+                  return None
+              if markup.get("inline_keyboard"):
+                  return markup
+              return None
 
 
           async def main() -> None:
-              api = RawBotApi(SecretStr(os.environ["OG_BOT_TOKEN"]))
+              settings = Settings.load(os.environ)
+              db = Database(
+                  settings.database_url.get_secret_value(),
+                  pool_size=settings.db_pool_size,
+                  application_name="og-telegram-test",
+              )
+              api = RawBotApi(
+                  settings.bot_token,
+                  base_url=settings.telegram_api_base,
+                  timeout=35.0,
+              )
+
               try:
+                  await db.ping()
                   bot = await api.get_me()
-                  if not bot.get("is_bot"):
-                      raise SystemExit("Telegram getMe returned an account that is not a bot.")
-                  print(
-                      "Telegram API connection successful: "
-                      f"@{bot.get('username', 'unknown')} (id={bot.get('id', 'unknown')})."
+                  webhook = await api.call("getWebhookInfo", idempotent=True)
+                  if webhook.get("url"):
+                      raise SystemExit(
+                          "A Telegram webhook is already configured. "
+                          "The test runner will not delete or replace it; disable the old webhook "
+                          "only after confirming it is no longer in use."
+                      )
+
+                  bot_username = str(bot.get("username") or "OpenGenerateBot")
+                  router = TelegramUiRouter(
+                      db,
+                      bootstrap_superadmins=set(settings.superadmin_ids),
+                      keyring=FieldCipher(settings.encryption_key_list),
+                      bot_api=api,
+                      get_chat_member=api.get_chat_member,
+                      bot_username=bot_username,
                   )
+
+                  stop = asyncio.Event()
+                  loop = asyncio.get_running_loop()
+                  for sig in (signal.SIGINT, signal.SIGTERM):
+                      try:
+                          loop.add_signal_handler(sig, stop.set)
+                      except NotImplementedError:
+                          pass
+
+                  async def deliver_response(
+                      chat_id: int | str,
+                      response: Any,
+                      *,
+                      edit_message_id: int | None = None,
+                  ) -> None:
+                      body = str(response.text or "").strip() or "درخواست انجام شد."
+                      markup = keyboard_or_none(response.reply_markup)
+
+                      if edit_message_id is not None:
+                          try:
+                              await api.edit_message_text(
+                                  chat_id,
+                                  edit_message_id,
+                                  body,
+                                  parse_mode="HTML",
+                                  reply_markup=response.reply_markup or {"inline_keyboard": []},
+                              )
+                          except TelegramApiError as exc:
+                              if exc.code != 400:
+                                  raise
+                              await api.send_message(
+                                  chat_id,
+                                  body,
+                                  parse_mode="HTML",
+                                  reply_markup=markup,
+                              )
+                      elif response.rich_blocks and settings.rich_messages != "off":
+                          await api.send_rich_message(
+                              chat_id,
+                              blocks=response.rich_blocks,
+                              fallback_html=body,
+                              reply_markup=markup,
+                          )
+                      else:
+                          await api.send_message(
+                              chat_id,
+                              body,
+                              parse_mode="HTML",
+                              reply_markup=markup,
+                          )
+
+                      for chunk in response.extra_chunks:
+                          part = str(chunk or "").strip()
+                          if part:
+                              await api.send_message(chat_id, part, parse_mode="HTML")
+
+                  async def handle_update(update: dict[str, Any]) -> None:
+                      callback = update.get("callback_query")
+                      if callback:
+                          sender = callback.get("from") or {}
+                          callback_id = str(callback.get("id") or "")
+                          trigger = str(callback.get("data") or "")
+                          try:
+                              response = await router.dispatch(
+                                  user_id=int(sender["id"]),
+                                  trigger=trigger,
+                                  username=sender.get("username"),
+                                  full_name=" ".join(
+                                      p for p in (sender.get("first_name"), sender.get("last_name")) if p
+                                  ) or None,
+                              )
+                          except NotFound:
+                              if callback_id:
+                                  await api.answer_callback_query(
+                                      callback_id,
+                                      "این دکمه یا مسیر دیگر معتبر نیست؛ منو را دوباره باز کن.",
+                                      show_alert=True,
+                                  )
+                              return
+                          except Exception as exc:
+                              print(f"Callback processing failed ({type(exc).__name__}).")
+                              if callback_id:
+                                  await api.answer_callback_query(
+                                      callback_id,
+                                      "پردازش درخواست با خطا روبه‌رو شد.",
+                                      show_alert=True,
+                                  )
+                              return
+
+                          if callback_id:
+                              await api.answer_callback_query(
+                                  callback_id,
+                                  (response.alert_text or "")[:190] or None,
+                                  show_alert=bool(response.show_alert),
+                              )
+                          source_message = callback.get("message") or {}
+                          source_chat = source_message.get("chat") or {}
+                          if source_chat.get("id") is not None and source_message.get("message_id") is not None:
+                              await deliver_response(
+                                  source_chat["id"],
+                                  response,
+                                  edit_message_id=int(source_message["message_id"]),
+                              )
+                          return
+
+                      message = update.get("message")
+                      if not message:
+                          return
+                      sender = message.get("from") or {}
+                      chat = message.get("chat") or {}
+                      if not sender.get("id") or not chat.get("id") or sender.get("is_bot"):
+                          return
+
+                      text_body = message.get("text") or message.get("caption")
+                      photo = message.get("photo") or []
+                      photo_file_id = photo[-1].get("file_id") if photo else None
+                      document = message.get("document") or {}
+                      document_file_id = document.get("file_id")
+                      reply_to = message.get("reply_to_message") or {}
+                      try:
+                          if isinstance(text_body, str) and text_body.strip().startswith("/"):
+                              parts = text_body.strip().split(maxsplit=1)
+                              command = parts[0].split("@", 1)[0]
+                              trigger = command + ((" " + parts[1]) if len(parts) == 2 else "")
+                              response = await router.dispatch(
+                                  user_id=int(sender["id"]),
+                                  trigger=trigger,
+                                  username=sender.get("username"),
+                                  full_name=" ".join(
+                                      p for p in (sender.get("first_name"), sender.get("last_name")) if p
+                                  ) or None,
+                              )
+                          else:
+                              if not (text_body or photo_file_id or document_file_id):
+                                  return
+                              response = await router.dispatch_message_input(
+                                  user_id=int(sender["id"]),
+                                  text_body=text_body if isinstance(text_body, str) else None,
+                                  photo_file_id=photo_file_id,
+                                  document_file_id=document_file_id,
+                                  replied_to_msg_id=(
+                                      int(reply_to["message_id"]) if reply_to.get("message_id") else None
+                                  ),
+                              )
+                          await deliver_response(chat["id"], response)
+                      except Exception as exc:
+                          print(f"Message processing failed ({type(exc).__name__}).")
+                          await api.send_message(
+                              chat["id"],
+                              "در پردازش پیام خطایی رخ داد. لطفاً دوباره تلاش کن.",
+                          )
+
+                  async def outbox_loop() -> None:
+                      dispatcher = OutboxDispatcher(db, TelegramOutboxSender(api))
+                      while not stop.is_set():
+                          try:
+                              handled = await dispatcher.run_once() if settings.send_enabled else 0
+                          except Exception as exc:
+                              print(f"Outbox delivery cycle failed ({type(exc).__name__}).")
+                              handled = 0
+                          if not handled:
+                              try:
+                                  await asyncio.wait_for(stop.wait(), timeout=1.0)
+                              except TimeoutError:
+                                  pass
+
+                  async def polling_loop() -> None:
+                      offset: int | None = None
+                      print(f"Telegram polling is active for @{bot_username} (id={bot.get('id')}).")
+                      print("Open the bot in Telegram and send /start. Cancel this workflow to stop it.")
+                      while not stop.is_set():
+                          payload: dict[str, Any] = {
+                              "timeout": 25,
+                              "allowed_updates": ["message", "callback_query"],
+                          }
+                          if offset is not None:
+                              payload["offset"] = offset
+                          try:
+                              updates = await api.call("getUpdates", payload, idempotent=True)
+                          except TelegramApiError as exc:
+                              if exc.code == 409:
+                                  raise RuntimeError(
+                                      "Telegram returned 409 Conflict: another process is polling this bot token."
+                                  ) from None
+                              print(f"Telegram polling API error ({exc.code}); retrying.")
+                              await asyncio.sleep(3)
+                              continue
+                          except Exception as exc:
+                              print(f"Telegram polling temporarily failed ({type(exc).__name__}); retrying.")
+                              await asyncio.sleep(3)
+                              continue
+
+                          for update in updates or []:
+                              try:
+                                  await handle_update(update)
+                              except Exception as exc:
+                                  print(f"Update {update.get('update_id')} failed ({type(exc).__name__}).")
+                              finally:
+                                  offset = int(update["update_id"]) + 1
+
+                  outbox_task = asyncio.create_task(outbox_loop(), name="og-outbox")
+                  try:
+                      await polling_loop()
+                  finally:
+                      stop.set()
+                      outbox_task.cancel()
+                      await asyncio.gather(outbox_task, return_exceptions=True)
               finally:
                   await api.aclose()
+                  await db.dispose()
 
 
           asyncio.run(main())
           PY
-
-      - name: Report smoke-test scope
-        run: |
-          echo "PostgreSQL connection and migrations: passed."
-          echo "OpenGenerate configuration: passed."
-          echo "Telegram bot token validation: passed."
-          echo "Note: this workflow does not start Telegram polling; the repository currently has no wired bot-update runtime entrypoint."
