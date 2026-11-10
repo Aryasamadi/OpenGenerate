@@ -124,6 +124,50 @@ class RawBotApi:
         result: dict[str, Any] = await self.call("sendMessage", payload)
         return result
 
+    async def edit_message_text(
+        self,
+        chat_id: int | str,
+        message_id: int,
+        text: str,
+        *,
+        parse_mode: str | None = "HTML",
+        reply_markup: Mapping[str, Any] | None = None,
+        disable_web_page_preview: bool = True,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "text": text,
+            "link_preview_options": {"is_disabled": disable_web_page_preview},
+        }
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
+        if reply_markup:
+            payload["reply_markup"] = dict(reply_markup)
+        try:
+            result: dict[str, Any] = await self.call("editMessageText", payload, idempotent=True)
+            return result
+        except TelegramApiError as exc:
+            if "message is not modified" in exc.description.lower():
+                return {"message_id": message_id, "unchanged": True}
+            raise
+
+    async def answer_callback_query(
+        self,
+        callback_query_id: str,
+        text: str | None = None,
+        *,
+        show_alert: bool = False,
+    ) -> bool:
+        payload: dict[str, Any] = {
+            "callback_query_id": callback_query_id,
+            "show_alert": show_alert,
+        }
+        if text:
+            payload["text"] = text
+        await self.call("answerCallbackQuery", payload, idempotent=True)
+        return True
+
     async def send_rich_message(
         self,
         chat_id: int | str,
