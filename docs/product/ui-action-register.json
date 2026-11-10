@@ -1,0 +1,1908 @@
+{
+  "version": "1.0.0",
+  "total_actions": 61,
+  "actions": [
+    {
+      "action_id": "CMD_START",
+      "label_fa": "شروع / صفحه اصلی",
+      "label_en": "Start / Home",
+      "trigger": "/start [ref_<user_id> | dl_<key>]",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Public entrypoint; referral attribution only on first qualifying /start; deep-link key must exist and be active.",
+      "parent_screen": "Telegram Chat Entry / Deep Link",
+      "destination_screen": "Language Selection (first-time) | User Home | Full Article View (dl_<key>)",
+      "input_and_validation": "Optional payload max 64 chars matching ^(ref_\\d+|dl_[A-Za-z0-9_-]+)$.",
+      "domain_operation": "onboarding.handle_start_command",
+      "db_entities": {
+        "read": [
+          "users",
+          "referrals",
+          "deeplinks",
+          "articles",
+          "settings"
+        ],
+        "write": [
+          "users",
+          "referrals",
+          "deeplinks"
+        ]
+      },
+      "external_side_effects": "Telegram sendMessage / sendRichMessage (for deep-link full article).",
+      "success_feedback_and_next": "Renders language picker for new user, full rich article for dl_<key>, or role-appropriate Home menu.",
+      "error_empty_busy_expired": "Invalid/expired deep-link shows localized notice and falls back to Home; self-referral ignored safely.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_commands.py::test_start_command_and_deeplinks"
+    },
+    {
+      "action_id": "CMD_LANG",
+      "label_fa": "تغییر زبان (🇮🇷 فارسی / 🇬🇧 English)",
+      "label_en": "Change Language (🇮🇷 Persian / 🇬🇧 English)",
+      "trigger": "/lang",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated bot user.",
+      "parent_screen": "Any Screen",
+      "destination_screen": "Language Selection Screen",
+      "input_and_validation": "None (command) -> followed by callback u:lang:fa or u:lang:en.",
+      "domain_operation": "identity.open_language_selector",
+      "db_entities": {
+        "read": [
+          "users"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram sendMessage with inline language buttons.",
+      "success_feedback_and_next": "Displays Persian and English selection buttons.",
+      "error_empty_busy_expired": "Rate-limited if spammed.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_commands.py::test_lang_command"
+    },
+    {
+      "action_id": "CMD_HELP",
+      "label_fa": "راهنما",
+      "label_en": "Help",
+      "trigger": "/help",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated bot user.",
+      "parent_screen": "Any Screen",
+      "destination_screen": "Help Screen",
+      "input_and_validation": "None.",
+      "domain_operation": "i18n.get_help_screen",
+      "db_entities": {
+        "read": [
+          "users",
+          "settings"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram sendMessage.",
+      "success_feedback_and_next": "Shows localized platform guide and navigation back to Home.",
+      "error_empty_busy_expired": "Falls back to built-in localized help text if custom override is absent.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_commands.py::test_help_command"
+    },
+    {
+      "action_id": "CMD_ABOUT",
+      "label_fa": "درباره ربات",
+      "label_en": "About Bot",
+      "trigger": "/about",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated bot user.",
+      "parent_screen": "Any Screen",
+      "destination_screen": "About Screen",
+      "input_and_validation": "None.",
+      "domain_operation": "i18n.get_about_screen",
+      "db_entities": {
+        "read": [
+          "users",
+          "settings"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram sendMessage.",
+      "success_feedback_and_next": "Displays platform overview and version info.",
+      "error_empty_busy_expired": "Standard fallback to built-in localized string.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_commands.py::test_about_command"
+    },
+    {
+      "action_id": "CMD_REF",
+      "label_fa": "دعوت از دوستان (رفرال)",
+      "label_en": "Referral / Invite Friends",
+      "trigger": "/ref",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated bot user; mandatory membership check if enabled.",
+      "parent_screen": "Any Screen",
+      "destination_screen": "Referral Dashboard",
+      "input_and_validation": "None.",
+      "domain_operation": "referrals.get_user_referral_dashboard",
+      "db_entities": {
+        "read": [
+          "users",
+          "referrals",
+          "wallet",
+          "settings"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram sendMessage.",
+      "success_feedback_and_next": "Shows personal ref_<user_id> link, invited count, reward %, and earned TMN/USD rewards.",
+      "error_empty_busy_expired": "If mandatory membership not satisfied, redirects to Mandatory Channel Gate.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_commands.py::test_ref_command"
+    },
+    {
+      "action_id": "CMD_MAN",
+      "label_fa": "پنل مدیریت کانالها",
+      "label_en": "Channel Management Panel",
+      "trigger": "/man",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user with active plan or existing channels/superadmin.",
+      "parent_screen": "Any Screen",
+      "destination_screen": "Admin Home Screen",
+      "input_and_validation": "None.",
+      "domain_operation": "channels.open_admin_home",
+      "db_entities": {
+        "read": [
+          "users",
+          "plans",
+          "channels",
+          "sources",
+          "usage"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram sendMessage.",
+      "success_feedback_and_next": "Opens Channel Admin Home with usage, plan status, and owned channels.",
+      "error_empty_busy_expired": "If user has no active plan and no channels, prompts to view/claim a plan.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_commands.py::test_man_command"
+    },
+    {
+      "action_id": "CMD_CANCEL",
+      "label_fa": "لغو عملیات جاری",
+      "label_en": "Cancel Current Operation",
+      "trigger": "/cancel",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated bot user.",
+      "parent_screen": "Any Guided Input / Stateful Prompt",
+      "destination_screen": "Previous Contextual Screen or Home",
+      "input_and_validation": "None.",
+      "domain_operation": "session.cancel_guided_input",
+      "db_entities": {
+        "read": [
+          "users",
+          "kv_cache"
+        ],
+        "write": [
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Telegram sendMessage.",
+      "success_feedback_and_next": "Clears active conversation state and returns user to safe menu.",
+      "error_empty_busy_expired": "If no active operation exists, informs user cleanly.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_commands.py::test_cancel_command"
+    },
+    {
+      "action_id": "CMD_CREATE",
+      "label_fa": "ثبت کانال جدید",
+      "label_en": "Register New Channel",
+      "trigger": "/create",
+      "roles_allowed": [
+        "admin",
+        "superadmin",
+        "user"
+      ],
+      "ownership_and_entitlement": "Requires active plan with remaining channel quota (or superadmin) + mandatory membership.",
+      "parent_screen": "Any Screen",
+      "destination_screen": "Channel Registration Guided Input",
+      "input_and_validation": "Prompts for forwarded channel post, @channel_username, or negative numeric channel ID.",
+      "domain_operation": "channels.start_registration_flow",
+      "db_entities": {
+        "read": [
+          "users",
+          "plans",
+          "channels"
+        ],
+        "write": [
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Telegram sendMessage.",
+      "success_feedback_and_next": "Enters guided channel identification step.",
+      "error_empty_busy_expired": "Quota exceeded or no active plan shows upgrade/plan prompt.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_commands.py::test_create_command"
+    },
+    {
+      "action_id": "CB_USER_HOME",
+      "label_fa": "🏠 خانه",
+      "label_en": "🏠 Home",
+      "trigger": "u:home",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated bot user.",
+      "parent_screen": "Any User Sub-Screen",
+      "destination_screen": "User Home Screen",
+      "input_and_validation": "Exact callback 'u:home' (6 bytes).",
+      "domain_operation": "onboarding.render_user_home",
+      "db_entities": {
+        "read": [
+          "users",
+          "plans",
+          "wallet"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Renders main subscriber menu (Plans, Support, Referral, Help, Language, Channel Panel).",
+      "error_empty_busy_expired": "Gracefully ignores MessageIsNotModified.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_user_callbacks.py::test_u_home"
+    },
+    {
+      "action_id": "CB_USER_PLANS",
+      "label_fa": "💎 اشتراکها و پلنها",
+      "label_en": "💎 Plans & Subscriptions",
+      "trigger": "u:plans",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user; mandatory membership check.",
+      "parent_screen": "User Home / Admin Home",
+      "destination_screen": "Plans Catalog Screen",
+      "input_and_validation": "Exact callback 'u:plans' (7 bytes).",
+      "domain_operation": "plans.list_active_plans_for_user",
+      "db_entities": {
+        "read": [
+          "users",
+          "plans",
+          "pay_requests",
+          "wallet"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Lists active plans, current subscription summary, expiry, and wallet balance.",
+      "error_empty_busy_expired": "Shows empty-state notice if no active plans are configured.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_user_callbacks.py::test_u_plans"
+    },
+    {
+      "action_id": "CB_USER_PLAN_DETAIL",
+      "label_fa": "📋 مشاهده جزئیات پلن",
+      "label_en": "📋 Inspect Plan Details",
+      "trigger": "u:plan:<plan_id>",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user; target plan must be active.",
+      "parent_screen": "Plans Catalog Screen",
+      "destination_screen": "Plan Detail & Quote Screen",
+      "input_and_validation": "Callback pattern ^u:plan:\\d+$ (<= 20 bytes).",
+      "domain_operation": "plans.inspect_plan_and_quote",
+      "db_entities": {
+        "read": [
+          "users",
+          "plans",
+          "discounts",
+          "wallet",
+          "pay_requests"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Displays quotas, duration, price (TMN for fa / USD for en), proration credit, discount, wallet applied, and payable total.",
+      "error_empty_busy_expired": "If plan deactivated, returns to catalog with notice.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_user_callbacks.py::test_u_plan_detail"
+    },
+    {
+      "action_id": "CB_USER_FREE_CLAIM",
+      "label_fa": "🎁 فعالسازی پلن رایگان",
+      "label_en": "🎁 Claim Free Plan",
+      "trigger": "u:free:<plan_id>",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "User must have free_plan_used == 0 and no active paid plan.",
+      "parent_screen": "Plan Detail Screen",
+      "destination_screen": "Admin Home / Subscription Confirmation Screen",
+      "input_and_validation": "Callback pattern ^u:free:\\d+$ (<= 20 bytes).",
+      "domain_operation": "subscription.claim_one_time_free_plan",
+      "db_entities": {
+        "read": [
+          "users",
+          "plans"
+        ],
+        "write": [
+          "users",
+          "plan_changes"
+        ]
+      },
+      "external_side_effects": "Telegram answerCallbackQuery + editMessageText.",
+      "success_feedback_and_next": "Atomically sets free_plan_used=1, assigns free plan, logs plan_changes, and opens channel management.",
+      "error_empty_busy_expired": "If already claimed, rejects and routes to u:freeused:<plan_id> behavior.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_user_callbacks.py::test_u_free_claim_once"
+    },
+    {
+      "action_id": "CB_USER_FREE_USED",
+      "label_fa": "🚫 پلن رایگان قبلاً استفاده شده",
+      "label_en": "🚫 Free Plan Already Used",
+      "trigger": "u:freeused:<plan_id>",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user with free_plan_used == 1.",
+      "parent_screen": "Plan Detail / Catalog Screen",
+      "destination_screen": "Same Screen (Alert Toast)",
+      "input_and_validation": "Callback pattern ^u:freeused:\\d+$ (<= 24 bytes).",
+      "domain_operation": "subscription.notify_free_plan_already_used",
+      "db_entities": {
+        "read": [
+          "users"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram answerCallbackQuery(show_alert=True).",
+      "success_feedback_and_next": "Shows clear localized alert that one-time free plan has already been used.",
+      "error_empty_busy_expired": "N/A (idempotent alert).",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_user_callbacks.py::test_u_freeused_alert"
+    },
+    {
+      "action_id": "CB_USER_PLAN_LOCKED",
+      "label_fa": "🔒 غیرقابل انتخاب (تنزل پلن مجاز نیست)",
+      "label_en": "🔒 Locked (Downgrade Not Allowed)",
+      "trigger": "u:locked:<plan_id>",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user attempting disallowed downgrade while higher plan is active.",
+      "parent_screen": "Plan Detail / Catalog Screen",
+      "destination_screen": "Same Screen (Alert Toast)",
+      "input_and_validation": "Callback pattern ^u:locked:\\d+$ (<= 22 bytes).",
+      "domain_operation": "subscription.notify_plan_locked_downgrade",
+      "db_entities": {
+        "read": [
+          "users",
+          "plans"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram answerCallbackQuery(show_alert=True).",
+      "success_feedback_and_next": "Explains why paid downgrade is blocked while current higher plan is active.",
+      "error_empty_busy_expired": "N/A (idempotent alert).",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_user_callbacks.py::test_u_locked_downgrade"
+    },
+    {
+      "action_id": "CB_USER_PAYMENT_PENDING",
+      "label_fa": "⏳ درخواست پرداخت در انتظار بررسی",
+      "label_en": "⏳ Payment Request Pending Review",
+      "trigger": "u:pending:<plan_id>",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "User already has an open pending/processing pay_request.",
+      "parent_screen": "Plan Detail Screen",
+      "destination_screen": "Pending Payment Status Screen / Alert",
+      "input_and_validation": "Callback pattern ^u:pending:\\d+$ (<= 23 bytes).",
+      "domain_operation": "payments.inspect_pending_request_status",
+      "db_entities": {
+        "read": [
+          "pay_requests",
+          "plans"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram answerCallbackQuery(show_alert=True) or editMessageText.",
+      "success_feedback_and_next": "Displays pending payment reference, submitted timestamp, and amount awaiting review.",
+      "error_empty_busy_expired": "If request was already resolved, refreshes Plan Detail screen.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_user_callbacks.py::test_u_pending_payment"
+    },
+    {
+      "action_id": "CB_USER_DISCOUNT_APPLY",
+      "label_fa": "🏷 ثبت کد تخفیف",
+      "label_en": "🏷 Apply Discount Code",
+      "trigger": "u:disc:<plan_id>",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user viewing an eligible numeric-tariff plan.",
+      "parent_screen": "Plan Detail Screen",
+      "destination_screen": "Discount Code Guided Input",
+      "input_and_validation": "Callback ^u:disc:\\d+$; expects alphanumeric discount code text (3-32 chars).",
+      "domain_operation": "discounts.prompt_and_validate_discount_code",
+      "db_entities": {
+        "read": [
+          "discounts",
+          "plans",
+          "users"
+        ],
+        "write": [
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText + text reply handler.",
+      "success_feedback_and_next": "Validates active/unexpired/available discount code and updates Plan Quote view.",
+      "error_empty_busy_expired": "Invalid, expired, or exhausted code shows localized error and keeps quote unchanged.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_user_callbacks.py::test_u_disc_apply_and_remove"
+    },
+    {
+      "action_id": "CB_USER_DISCOUNT_REMOVE",
+      "label_fa": "❌ حذف کد تخفیف",
+      "label_en": "❌ Remove Discount Code",
+      "trigger": "u:discx:<plan_id>",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user with discount applied to current quote session.",
+      "parent_screen": "Plan Detail Screen",
+      "destination_screen": "Plan Detail Screen (Recalculated)",
+      "input_and_validation": "Callback ^u:discx:\\d+$ (<= 21 bytes).",
+      "domain_operation": "discounts.remove_discount_from_quote",
+      "db_entities": {
+        "read": [
+          "plans",
+          "wallet"
+        ],
+        "write": [
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Removes discount code from quote and refreshes payable amount.",
+      "error_empty_busy_expired": "Idempotent if already removed.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_user_callbacks.py::test_u_disc_apply_and_remove"
+    },
+    {
+      "action_id": "CB_USER_REQUEST_PAYMENT",
+      "label_fa": "💳 ارسال رسید پرداخت / خرید پلن",
+      "label_en": "💳 Submit Payment Receipt / Buy Plan",
+      "trigger": "u:req:<plan_id>",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user; no open pending payment; plan has valid numeric tariff in user's currency.",
+      "parent_screen": "Plan Detail Screen",
+      "destination_screen": "Receipt Submission Guided Input (or Instant Activation if Wallet Covers 100%)",
+      "input_and_validation": "Callback ^u:req:\\d+$; expects text receipt (10-1000 chars), photo (<=10MB), or document (<=15MB PDF/image).",
+      "domain_operation": "payments.initiate_payment_request",
+      "db_entities": {
+        "read": [
+          "users",
+          "plans",
+          "discounts",
+          "wallet",
+          "pay_requests",
+          "rate_limits"
+        ],
+        "write": [
+          "pay_requests",
+          "notifications",
+          "rate_limits"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText + Outbox notification forwarding receipt to superadmins.",
+      "success_feedback_and_next": "Saves immutable quote snapshot & receipt, notifies superadmins, and shows pending confirmation.",
+      "error_empty_busy_expired": "Rate-limited on repeated submissions; negotiated text-only plans prompt contacting support instead.",
+      "destructive": false,
+      "confirmation_required": "Shows exact currency, base price, discount, wallet applied, and final payable amount before receipt input.",
+      "automated_test": "tests/ui/test_user_callbacks.py::test_u_req_receipt_submission"
+    },
+    {
+      "action_id": "CB_USER_REFERRAL",
+      "label_fa": "🎁 دعوت از دوستان و کسب درآمد",
+      "label_en": "🎁 Invite Friends & Earn Rewards",
+      "trigger": "u:ref",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user.",
+      "parent_screen": "User Home Screen",
+      "destination_screen": "Referral Dashboard Screen",
+      "input_and_validation": "Exact callback 'u:ref' (5 bytes).",
+      "domain_operation": "referrals.get_user_referral_dashboard",
+      "db_entities": {
+        "read": [
+          "users",
+          "referrals",
+          "wallet",
+          "settings"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Displays deep link, referral rules, invited count, and currency-separated rewards.",
+      "error_empty_busy_expired": "Handles zero referrals with clear explanation.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_user_callbacks.py::test_u_ref"
+    },
+    {
+      "action_id": "CB_USER_SUPPORT",
+      "label_fa": "💬 پشتیبانی",
+      "label_en": "💬 Support",
+      "trigger": "u:sup | u:support | u:sclose",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user; not banned from support; subject to support rate limits.",
+      "parent_screen": "User Home Screen",
+      "destination_screen": "Support Conversation Mode",
+      "input_and_validation": "Text, photo, video, voice, or document within safe size limits.",
+      "domain_operation": "support.open_or_close_user_support_session",
+      "db_entities": {
+        "read": [
+          "users",
+          "support",
+          "rate_limits"
+        ],
+        "write": [
+          "support",
+          "support_map",
+          "notifications",
+          "rate_limits"
+        ]
+      },
+      "external_side_effects": "Forwards message/media to superadmins with sender context and records support_map.",
+      "success_feedback_and_next": "Confirms message delivery to support and provides Close Support button.",
+      "error_empty_busy_expired": "Rate limit exceeded returns cooldown notice.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_support_flow.py::test_user_support_open_forward_reply_close"
+    },
+    {
+      "action_id": "CB_USER_MANAGE_PANEL",
+      "label_fa": "⚙️ مدیریت کانالها",
+      "label_en": "⚙️ Manage Channels",
+      "trigger": "u:man",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user; mandatory membership check.",
+      "parent_screen": "User Home Screen",
+      "destination_screen": "Channel Admin Home Screen",
+      "input_and_validation": "Exact callback 'u:man' (5 bytes).",
+      "domain_operation": "channels.open_admin_home",
+      "db_entities": {
+        "read": [
+          "users",
+          "plans",
+          "channels",
+          "sources",
+          "usage"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Transitions to Channel Administrator Home.",
+      "error_empty_busy_expired": "If no plan and no channels, displays prompt to activate a plan.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_user_callbacks.py::test_u_man"
+    },
+    {
+      "action_id": "CB_USER_HELP",
+      "label_fa": "📚 راهنما",
+      "label_en": "📚 Help",
+      "trigger": "u:help",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user.",
+      "parent_screen": "User Home Screen",
+      "destination_screen": "Help Screen",
+      "input_and_validation": "Exact callback 'u:help' (6 bytes).",
+      "domain_operation": "i18n.get_help_screen",
+      "db_entities": {
+        "read": [
+          "users",
+          "settings"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Renders localized help text with Back button.",
+      "error_empty_busy_expired": "Falls back to default help string if custom string is unset.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_user_callbacks.py::test_u_help"
+    },
+    {
+      "action_id": "CB_USER_LANG",
+      "label_fa": "🌐 تغییر زبان / Language",
+      "label_en": "🌐 Language / تغییر زبان",
+      "trigger": "u:lang | u:lang:fa | u:lang:en",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user.",
+      "parent_screen": "First-Time Onboarding / User Home",
+      "destination_screen": "Language Picker -> User Home (Localized)",
+      "input_and_validation": "Callback in {'u:lang', 'u:lang:fa', 'u:lang:en'}.",
+      "domain_operation": "identity.set_user_language",
+      "db_entities": {
+        "read": [
+          "users",
+          "channels"
+        ],
+        "write": [
+          "users",
+          "channels"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Updates user.lang, relocalizes only unmodified default channel texts (preserving custom edits), and renders Home.",
+      "error_empty_busy_expired": "Unsupported language code rejected.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_user_callbacks.py::test_u_lang_switch_preserves_custom_channel_settings"
+    },
+    {
+      "action_id": "CB_MANDATORY_MEMBERSHIP_CHECK",
+      "label_fa": "✅ عضو شدم / بررسی عضویت",
+      "label_en": "✅ I Joined / Verify Membership",
+      "trigger": "a:mand",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user gated by mandatory channel requirement.",
+      "parent_screen": "Mandatory Membership Gate Screen",
+      "destination_screen": "Originally Requested Screen or Home",
+      "input_and_validation": "Exact callback 'a:mand' (6 bytes).",
+      "domain_operation": "membership.verify_mandatory_channel_membership",
+      "db_entities": {
+        "read": [
+          "users",
+          "settings"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram getChatMember API call + editMessageText/answerCallbackQuery.",
+      "success_feedback_and_next": "Confirms membership and unlocks the requested screen.",
+      "error_empty_busy_expired": "If user not joined, shows alert; if Telegram API has transient network failure, fails safe without permanent lockout.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_membership_gate.py::test_a_mand_verification_and_transient_error"
+    },
+    {
+      "action_id": "CB_SHARED_CANCEL",
+      "label_fa": "🔙 انصراف و بازگشت",
+      "label_en": "🔙 Cancel & Back",
+      "trigger": "c:cancel",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user in an active guided input or confirmation prompt.",
+      "parent_screen": "Any Guided Input / Confirmation Dialog",
+      "destination_screen": "Parent Screen Recorded in Session",
+      "input_and_validation": "Exact callback 'c:cancel' (8 bytes).",
+      "domain_operation": "session.cancel_and_return_to_parent",
+      "db_entities": {
+        "read": [
+          "kv_cache"
+        ],
+        "write": [
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Aborts pending input/confirmation and restores parent view.",
+      "error_empty_busy_expired": "If session expired, returns safely to role Home screen.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_shared_callbacks.py::test_c_cancel"
+    },
+    {
+      "action_id": "CB_ADMIN_HOME",
+      "label_fa": "🎛 پنل مدیریت کانالها",
+      "label_en": "🎛 Channel Admin Home",
+      "trigger": "a:home",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user; displays only channels owned by actor (plus Superadmin Panel button only for superadmins).",
+      "parent_screen": "User Home / Channel Menu / Superadmin Dashboard",
+      "destination_screen": "Channel Admin Home Screen",
+      "input_and_validation": "Exact callback 'a:home' (6 bytes).",
+      "domain_operation": "channels.render_admin_home",
+      "db_entities": {
+        "read": [
+          "users",
+          "plans",
+          "channels",
+          "sources",
+          "usage"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Shows current plan/expiry, today's post/test usage, channel/source counts vs limits, owned channels, Add Channel, My Plan, and Superadmin entry (if superadmin).",
+      "error_empty_busy_expired": "Gracefully displays empty channel list with Add Channel button.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_admin_callbacks.py::test_a_home"
+    },
+    {
+      "action_id": "CB_ADMIN_MY_PLAN",
+      "label_fa": "💳 پلن من و تمدید/ارتقاء",
+      "label_en": "💳 My Plan & Renew/Upgrade",
+      "trigger": "a:plan",
+      "roles_allowed": [
+        "user",
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Authenticated user.",
+      "parent_screen": "Channel Admin Home Screen",
+      "destination_screen": "Current Plan Summary & Plans Catalog",
+      "input_and_validation": "Exact callback 'a:plan' (6 bytes).",
+      "domain_operation": "plans.inspect_current_plan_from_admin",
+      "db_entities": {
+        "read": [
+          "users",
+          "plans",
+          "usage",
+          "wallet"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Shows detailed entitlement usage, expiry, and renewal/upgrade options.",
+      "error_empty_busy_expired": "Prompts plan selection if no active plan.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_admin_callbacks.py::test_a_plan"
+    },
+    {
+      "action_id": "CB_ADMIN_CHANNEL_ADD",
+      "label_fa": "➕ افزودن کانال جدید",
+      "label_en": "➕ Add New Channel",
+      "trigger": "a:chadd",
+      "roles_allowed": [
+        "admin",
+        "superadmin",
+        "user"
+      ],
+      "ownership_and_entitlement": "Requires active plan with channels_count < max_channels (or superadmin) + mandatory membership.",
+      "parent_screen": "Channel Admin Home Screen",
+      "destination_screen": "Channel Registration Guided Input / Conflict Resolution Flow",
+      "input_and_validation": "Forwarded post from channel, @username, or -100... ID; or 10-digit transfer token if channel conflict recovery is triggered.",
+      "domain_operation": "channels.register_or_recover_channel",
+      "db_entities": {
+        "read": [
+          "users",
+          "plans",
+          "channels",
+          "ch_tokens",
+          "pub_journal",
+          "rate_limits"
+        ],
+        "write": [
+          "channels",
+          "ch_tokens",
+          "notifications",
+          "rate_limits"
+        ]
+      },
+      "external_side_effects": "Telegram getChat, getChatMember (bot & user permissions), Outbox notifications on ownership transfer.",
+      "success_feedback_and_next": "Registers channel or completes audited ownership transfer and opens Channel Home.",
+      "error_empty_busy_expired": "Rejects if bot lacks post permission, user is not channel admin, quota full, or transfer token invalid/expired/locked by active publication.",
+      "destructive": false,
+      "confirmation_required": "Ownership transfer requires 10-digit token verification and notifies old owner + superadmins.",
+      "automated_test": "tests/ui/test_channel_registration.py::test_a_chadd_and_ownership_transfer"
+    },
+    {
+      "action_id": "CB_ADMIN_CHANNEL_HOME",
+      "label_fa": "📢 مدیریت کانال",
+      "label_en": "📢 Channel Dashboard",
+      "trigger": "a:ch:<channel_id>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Strict ownership check: channels.owner_id == user_id (or superadmin).",
+      "parent_screen": "Channel Admin Home Screen",
+      "destination_screen": "Channel Home Menu (10 Functional Areas)",
+      "input_and_validation": "Callback ^a:ch:-?\\d+$ (<= 24 bytes).",
+      "domain_operation": "channels.open_channel_dashboard",
+      "db_entities": {
+        "read": [
+          "channels",
+          "sources",
+          "articles",
+          "usage"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Renders 10-area Channel Menu: Test, Report, Sources, Queue, Scheduling, Content, Rejected, Automation Toggle, Personal AI, Delete Channel.",
+      "error_empty_busy_expired": "Unauthorized or deleted channel returns permission/not-found error and redirects to Admin Home.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_admin_callbacks.py::test_a_ch_dashboard_authz"
+    },
+    {
+      "action_id": "CB_ADMIN_CHANNEL_TEST",
+      "label_fa": "🧪 تست دستی چرخه کانال",
+      "label_en": "🧪 Run Manual Test Cycle",
+      "trigger": "a:test:<channel_id>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Channel owner; requires active plan and usage.tests_count < plan.daily_test_limit.",
+      "parent_screen": "Channel Home Menu",
+      "destination_screen": "Channel Test Diagnostics Result Screen",
+      "input_and_validation": "Callback ^a:test:-?\\d+$ (<= 26 bytes).",
+      "domain_operation": "workflows.channel_test.run_manual_test_cycle",
+      "db_entities": {
+        "read": [
+          "channels",
+          "sources",
+          "articles",
+          "ai_models",
+          "usage",
+          "plans"
+        ],
+        "write": [
+          "usage",
+          "articles",
+          "sources",
+          "ai_usage",
+          "ai_cache"
+        ]
+      },
+      "external_side_effects": "SSRF-safe source fetch, AI provider call, Telegram progress & diagnostic summary update.",
+      "success_feedback_and_next": "Shows stage-by-stage outcome (discovered, extracted, filtered, AI scored/formatted, ready/rejected) and remaining test quota.",
+      "error_empty_busy_expired": "Blocks if daily test quota exhausted or a test is already running for this channel.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_admin_callbacks.py::test_a_test_manual_cycle_and_quota"
+    },
+    {
+      "action_id": "CB_ADMIN_CHANNEL_REPORT",
+      "label_fa": "📊 گزارش عملکرد کانال",
+      "label_en": "📊 Channel Activity Report",
+      "trigger": "a:rep:<channel_id>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Channel owner (or superadmin).",
+      "parent_screen": "Channel Home Menu",
+      "destination_screen": "Channel Report Screen",
+      "input_and_validation": "Callback ^a:rep:-?\\d+$ (<= 25 bytes).",
+      "domain_operation": "reports.get_channel_activity_report",
+      "db_entities": {
+        "read": [
+          "channels",
+          "sources",
+          "articles",
+          "posted",
+          "usage",
+          "plans"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Displays recent publications, active/failing sources, ready/rejected counts, and daily quota usage.",
+      "error_empty_busy_expired": "Shows clean zero-state metrics for newly created channels.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_admin_callbacks.py::test_a_rep_channel_report"
+    },
+    {
+      "action_id": "CB_ADMIN_CHANNEL_AUTOMATION_TOGGLE",
+      "label_fa": "⚡ روشن/خاموش کردن اتوماسیون کانال",
+      "label_en": "⚡ Toggle Channel Automation",
+      "trigger": "a:tog:<channel_id>:enabled",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Channel owner with active plan (to enable).",
+      "parent_screen": "Channel Home Menu",
+      "destination_screen": "Channel Home Menu (Updated Status)",
+      "input_and_validation": "Callback ^a:tog:-?\\d+:enabled$ (<= 33 bytes).",
+      "domain_operation": "channels.toggle_channel_automation",
+      "db_entities": {
+        "read": [
+          "channels",
+          "users",
+          "plans"
+        ],
+        "write": [
+          "channels"
+        ]
+      },
+      "external_side_effects": "Telegram answerCallbackQuery + editMessageText.",
+      "success_feedback_and_next": "Flips channel.enabled state and updates badge on Channel Home Menu.",
+      "error_empty_busy_expired": "Cannot enable automation if subscription is expired or channel has 0 enabled sources.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_admin_callbacks.py::test_a_tog_channel_automation"
+    },
+    {
+      "action_id": "CB_ADMIN_CHANNEL_DELETE",
+      "label_fa": "🗑 حذف کانال",
+      "label_en": "🗑 Delete Channel",
+      "trigger": "a:chdel:<channel_id> | a:chdel:<channel_id>:confirm",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Strict channel owner verification.",
+      "parent_screen": "Channel Home Menu",
+      "destination_screen": "Delete Confirmation Dialog -> Channel Admin Home",
+      "input_and_validation": "Callback ^a:chdel:-?\\d+(:confirm)?$ (<= 35 bytes).",
+      "domain_operation": "channels.delete_channel_registration",
+      "db_entities": {
+        "read": [
+          "channels",
+          "pub_journal"
+        ],
+        "write": [
+          "channels",
+          "sources",
+          "articles",
+          "ch_tokens"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "After explicit confirmation, removes active channel registration while preserving immutable financial/audit records.",
+      "error_empty_busy_expired": "Blocks deletion if an active publication is currently in-flight for the channel.",
+      "destructive": true,
+      "confirmation_required": "Explicit two-step confirmation screen warning that channel sources and queues will be removed.",
+      "automated_test": "tests/ui/test_admin_callbacks.py::test_a_chdel_confirmation_and_cleanup"
+    },
+    {
+      "action_id": "CB_ADMIN_SOURCES_LIST",
+      "label_fa": "🌐 مدیریت منابع محتوا",
+      "label_en": "🌐 Manage Content Sources",
+      "trigger": "a:src:<channel_id>[:<page>]",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Channel owner.",
+      "parent_screen": "Channel Home Menu",
+      "destination_screen": "Paginated Source List Screen",
+      "input_and_validation": "Callback ^a:src:-?\\d+(:\\d+)?$ (<= 30 bytes).",
+      "domain_operation": "sources.list_channel_sources",
+      "db_entities": {
+        "read": [
+          "channels",
+          "sources",
+          "plans"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Lists configured sources with fetch/publish badges, pagination controls, and Add Source button.",
+      "error_empty_busy_expired": "Shows empty-state guide when no sources exist.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_sources_callbacks.py::test_a_src_list_and_pagination"
+    },
+    {
+      "action_id": "CB_ADMIN_SOURCE_ADD",
+      "label_fa": "➕ افزودن منبع جدید (URL)",
+      "label_en": "➕ Add New Source (URL)",
+      "trigger": "a:srca:<channel_id>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Channel owner; total sources < plan.max_sources.",
+      "parent_screen": "Paginated Source List Screen",
+      "destination_screen": "Add Source Guided Input -> Source Detail Screen",
+      "input_and_validation": "Callback ^a:srca:-?\\d+$; expects valid HTTP/HTTPS URL passing SSRF check.",
+      "domain_operation": "sources.add_and_probe_source",
+      "db_entities": {
+        "read": [
+          "channels",
+          "sources",
+          "plans"
+        ],
+        "write": [
+          "sources",
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "SSRF-safe discovery probe (RSS/Atom, JSON Feed, Sitemap, HTML, JSON API).",
+      "success_feedback_and_next": "Detects discovery strategy, saves source, and displays diagnostic summary.",
+      "error_empty_busy_expired": "Rejects private/loopback IPs (SSRF), duplicate URLs, or quota exhaustion.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_sources_callbacks.py::test_a_srca_add_and_ssrf_block"
+    },
+    {
+      "action_id": "CB_ADMIN_SOURCE_INSPECT",
+      "label_fa": "🔍 جزئیات و وضعیت منبع",
+      "label_en": "🔍 Inspect Source Details",
+      "trigger": "a:srcv:<source_id>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Owner of the channel to which source_id belongs.",
+      "parent_screen": "Paginated Source List Screen",
+      "destination_screen": "Source Detail & Diagnostics Screen",
+      "input_and_validation": "Callback ^a:srcv:\\d+$ (<= 22 bytes).",
+      "domain_operation": "sources.inspect_source",
+      "db_entities": {
+        "read": [
+          "sources",
+          "channels"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Shows URL, discovery strategy, fetch/publish toggles, custom API indicator (key masked), ETag/cooldown, and actions.",
+      "error_empty_busy_expired": "Returns to source list if source was deleted.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_sources_callbacks.py::test_a_srcv_inspect"
+    },
+    {
+      "action_id": "CB_ADMIN_SOURCE_RECHECK",
+      "label_fa": "🔄 بررسی مجدد و عیبیابی منبع",
+      "label_en": "🔄 Recheck Source & Diagnostics",
+      "trigger": "a:srcr:<source_id>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Owner of the parent channel.",
+      "parent_screen": "Source Detail Screen",
+      "destination_screen": "Source Detail Screen (With Updated Diagnostics)",
+      "input_and_validation": "Callback ^a:srcr:\\d+$ (<= 22 bytes).",
+      "domain_operation": "sources.recheck_source_diagnostics",
+      "db_entities": {
+        "read": [
+          "sources",
+          "channels"
+        ],
+        "write": [
+          "sources"
+        ]
+      },
+      "external_side_effects": "SSRF-safe HTTP fetch + Telegram editMessageText.",
+      "success_feedback_and_next": "Displays candidate article count, sample titles, date parsing status, and resets cooldown on success.",
+      "error_empty_busy_expired": "Shows safe, sanitized error reason (without leaking API keys) if remote host fails.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_sources_callbacks.py::test_a_srcr_diagnostics"
+    },
+    {
+      "action_id": "CB_ADMIN_SOURCE_TOGGLE_FETCH",
+      "label_fa": "📡 روشن/خاموش کردن دریافت (Fetch)",
+      "label_en": "📡 Toggle Source Fetching",
+      "trigger": "a:srct:<source_id>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Owner of the parent channel.",
+      "parent_screen": "Source Detail Screen",
+      "destination_screen": "Source Detail Screen",
+      "input_and_validation": "Callback ^a:srct:\\d+$ (<= 22 bytes).",
+      "domain_operation": "sources.toggle_fetch_enabled",
+      "db_entities": {
+        "read": [
+          "sources",
+          "channels"
+        ],
+        "write": [
+          "sources"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Toggles fetch_enabled and updates Source Detail view.",
+      "error_empty_busy_expired": "Unauthorized access blocked.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_sources_callbacks.py::test_a_srct_and_srctb_toggles"
+    },
+    {
+      "action_id": "CB_ADMIN_SOURCE_TOGGLE_PUBLISH",
+      "label_fa": "📤 روشن/خاموش کردن استفاده برای انتشار",
+      "label_en": "📤 Toggle Source Publication Use",
+      "trigger": "a:srctb:<source_id>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Owner of the parent channel.",
+      "parent_screen": "Source Detail Screen",
+      "destination_screen": "Source Detail Screen",
+      "input_and_validation": "Callback ^a:srctb:\\d+$ (<= 23 bytes).",
+      "domain_operation": "sources.toggle_publish_enabled",
+      "db_entities": {
+        "read": [
+          "sources",
+          "channels"
+        ],
+        "write": [
+          "sources"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Separately toggles publish_enabled without altering fetch_enabled.",
+      "error_empty_busy_expired": "Unauthorized access blocked.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_sources_callbacks.py::test_a_srct_and_srctb_toggles"
+    },
+    {
+      "action_id": "CB_ADMIN_SOURCE_CUSTOM_API",
+      "label_fa": "🔑 تنظیم API اختصاصی و کلید منبع",
+      "label_en": "🔑 Configure Custom API & Key",
+      "trigger": "a:srcapi:<source_id>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Owner of the parent channel.",
+      "parent_screen": "Source Detail Screen",
+      "destination_screen": "Custom API Guided Input -> Source Detail Screen",
+      "input_and_validation": "Callback ^a:srcapi:\\d+$; expects valid HTTPS endpoint URL (SSRF-checked) and optional API key.",
+      "domain_operation": "sources.configure_custom_api",
+      "db_entities": {
+        "read": [
+          "sources",
+          "channels"
+        ],
+        "write": [
+          "sources",
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Encrypts API key at rest via Fernet; deletes user message containing plaintext key where possible.",
+      "success_feedback_and_next": "Saves encrypted custom API config and returns to Source Detail.",
+      "error_empty_busy_expired": "Invalid/private URL rejected by SSRF guard.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_sources_callbacks.py::test_a_srcapi_encryption_and_clear"
+    },
+    {
+      "action_id": "CB_ADMIN_SOURCE_CUSTOM_API_CLEAR",
+      "label_fa": "🧹 پاک کردن تنظیمات API اختصاصی",
+      "label_en": "🧹 Clear Custom API Settings",
+      "trigger": "a:srcapix:<source_id>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Owner of the parent channel.",
+      "parent_screen": "Source Detail Screen",
+      "destination_screen": "Source Detail Screen",
+      "input_and_validation": "Callback ^a:srcapix:\\d+$ (<= 25 bytes).",
+      "domain_operation": "sources.clear_custom_api",
+      "db_entities": {
+        "read": [
+          "sources",
+          "channels"
+        ],
+        "write": [
+          "sources"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Wipes custom_api_url and custom_api_key_enc and reverts source to standard discovery.",
+      "error_empty_busy_expired": "Idempotent if already empty.",
+      "destructive": true,
+      "confirmation_required": "Confirmation prompt before wiping stored API credentials.",
+      "automated_test": "tests/ui/test_sources_callbacks.py::test_a_srcapi_encryption_and_clear"
+    },
+    {
+      "action_id": "CB_ADMIN_SOURCE_DELETE",
+      "label_fa": "🗑 حذف منبع",
+      "label_en": "🗑 Delete Source",
+      "trigger": "a:srcd:<source_id>[:confirm]",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Owner of the parent channel.",
+      "parent_screen": "Source Detail Screen",
+      "destination_screen": "Delete Confirmation -> Paginated Source List",
+      "input_and_validation": "Callback ^a:srcd:\\d+(:confirm)?$ (<= 30 bytes).",
+      "domain_operation": "sources.delete_source",
+      "db_entities": {
+        "read": [
+          "sources",
+          "channels"
+        ],
+        "write": [
+          "sources"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Deletes source after confirmation and returns to channel's source list.",
+      "error_empty_busy_expired": "Gracefully handles already-deleted source.",
+      "destructive": true,
+      "confirmation_required": "Explicit confirmation button before deleting source.",
+      "automated_test": "tests/ui/test_sources_callbacks.py::test_a_srcd_delete"
+    },
+    {
+      "action_id": "CB_ADMIN_CONTENT_MENU",
+      "label_fa": "✍️ تنظیمات محتوا و تحریریه",
+      "label_en": "✍️ Editorial & Content Settings",
+      "trigger": "a:con:<channel_id>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Channel owner.",
+      "parent_screen": "Channel Home Menu",
+      "destination_screen": "Channel Editorial Configuration Screen",
+      "input_and_validation": "Callback ^a:con:-?\\d+$ (<= 25 bytes).",
+      "domain_operation": "channels.open_content_settings",
+      "db_entities": {
+        "read": [
+          "channels"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Displays topic, output language, prompt, signature, categories, criteria, min score, max words, max caption, and formatting switches (including domain-adaptive scientific formatting).",
+      "error_empty_busy_expired": "Unauthorized channel access blocked.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_content_settings.py::test_a_con_and_set_fields"
+    },
+    {
+      "action_id": "CB_ADMIN_CONTENT_SET_FIELD",
+      "label_fa": "⚙️ ویرایش فیلد تنظیمات محتوا",
+      "label_en": "⚙️ Edit Content Setting Field",
+      "trigger": "a:set:<channel_id>:<field>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Channel owner.",
+      "parent_screen": "Channel Editorial Configuration Screen",
+      "destination_screen": "Guided Input (for text/numeric fields) or Immediate Toggle -> Editorial Screen",
+      "input_and_validation": "Fields: topic, lang, prompt, sig, min_score (0-100), max_words (50-4000), max_caption (200-1024), hashtags, src_link, media, strict_ad, sci_format.",
+      "domain_operation": "channels.update_content_setting_field",
+      "db_entities": {
+        "read": [
+          "channels"
+        ],
+        "write": [
+          "channels",
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText; invalidates ai_cache fingerprint for channel.",
+      "success_feedback_and_next": "Updates only the target channel's settings_json and refreshes screen.",
+      "error_empty_busy_expired": "Out-of-range numbers or invalid HTML in signature rejected with helpful message.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_content_settings.py::test_a_con_and_set_fields"
+    },
+    {
+      "action_id": "CB_ADMIN_CATEGORIES",
+      "label_fa": "🗂 مدیریت دستهبندیها (افزودن/مشاهده/ویرایش/حذف)",
+      "label_en": "🗂 Manage Categories (List/Inspect/Add/Style/Delete)",
+      "trigger": "a:cat:<ch_id>[:<p>] | a:catv:<ch_id>:<idx> | a:cata:<ch_id> | a:cats:<ch_id>:<idx> | a:catd:<ch_id>:<idx>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Channel owner.",
+      "parent_screen": "Channel Editorial Configuration Screen",
+      "destination_screen": "Paginated Categories (15/page) / Category Detail / Guided Input",
+      "input_and_validation": "Category name (1-60 chars), emoji (valid unicode emoji), style instruction (1-500 chars).",
+      "domain_operation": "channels.categories.manage_categories",
+      "db_entities": {
+        "read": [
+          "channels"
+        ],
+        "write": [
+          "channels",
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Supports paginated listing (15/page), inspection, adding, style editing, and deletion.",
+      "error_empty_busy_expired": "Prevents duplicate category names within the same channel.",
+      "destructive": true,
+      "confirmation_required": "a:catd requires confirmation before deleting a category.",
+      "automated_test": "tests/ui/test_content_settings.py::test_categories_crud_and_pagination"
+    },
+    {
+      "action_id": "CB_ADMIN_CRITERIA",
+      "label_fa": "⚖️ مدیریت معیارهای ارزیابی (افزودن/مشاهده/وزن/حذف)",
+      "label_en": "⚖️ Manage Evaluation Criteria (List/Inspect/Add/Weight/Delete)",
+      "trigger": "a:cri:<ch_id>[:<p>] | a:criv:<ch_id>:<idx> | a:cria:<ch_id> | a:criw:<ch_id>:<idx> | a:crid:<ch_id>:<idx>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Channel owner.",
+      "parent_screen": "Channel Editorial Configuration Screen",
+      "destination_screen": "Paginated Criteria (15/page) / Criterion Detail / Guided Input",
+      "input_and_validation": "Criterion name (1-60 chars) and numeric positive weight (0.1 - 100).",
+      "domain_operation": "channels.criteria.manage_criteria",
+      "db_entities": {
+        "read": [
+          "channels"
+        ],
+        "write": [
+          "channels",
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Supports 15-item pagination, inspection, creation, weight adjustment, and deletion.",
+      "error_empty_busy_expired": "Rejects non-numeric or <=0 weights.",
+      "destructive": true,
+      "confirmation_required": "a:crid requires confirmation before deleting a criterion.",
+      "automated_test": "tests/ui/test_content_settings.py::test_criteria_crud_and_pagination"
+    },
+    {
+      "action_id": "CB_ADMIN_SCHEDULING",
+      "label_fa": "⏰ زمانبندی، ساعات خاموشی، منطقه زمانی و حالت انتشار",
+      "label_en": "⏰ Scheduling, Quiet Hours, Timezone & Publish Mode",
+      "trigger": "a:sch:<ch_id> | a:quiet:<ch_id> | a:qs:<ch_id>:<h> | a:qoff:<ch_id> | a:tz:<ch_id> | a:tzs:<ch_id>:<tz> | a:mode:<ch_id>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Channel owner; daily post cap constrained <= active plan daily_post_limit.",
+      "parent_screen": "Channel Home Menu",
+      "destination_screen": "Scheduling Config / Quiet Hours Picker / IANA Timezone Picker",
+      "input_and_validation": "Cycle interval (mins), posts/cycle, lookback (hours), daily cap (<= plan entitlement), undated toggle, quiet start/end (0-23), valid IANA timezone (e.g. Asia/Tehran, UTC).",
+      "domain_operation": "scheduling.configure_channel_schedule",
+      "db_entities": {
+        "read": [
+          "channels",
+          "plans"
+        ],
+        "write": [
+          "channels",
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Persists DST-aware schedule & mode (auto vs review/manual) and updates next run calculation.",
+      "error_empty_busy_expired": "Rejects daily cap above subscription entitlement or unknown timezone.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_scheduling_callbacks.py::test_scheduling_quiet_hours_and_dst_timezone"
+    },
+    {
+      "action_id": "CB_ADMIN_QUEUE_AND_ARTICLES",
+      "label_fa": "📥 صف انتشار، مقالات ردشده، بازبینی، ویرایش و انتشار دستی",
+      "label_en": "📥 Ready Queue, Rejected Items, Inspect, Edit, Publish & Reset",
+      "trigger": "a:que:<ch_id>[:<sort>:<p>] | a:rej:<ch_id>[:<p>] | a:art:<id> | a:arte:<id> | a:artf:<id> | a:pub:<id> | a:artr:<id> | a:artd:<id> | a:qreset:<ch_id>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Channel owner; manual publish checks daily post quota.",
+      "parent_screen": "Channel Home Menu",
+      "destination_screen": "Ready Queue / Rejected List / Article Detail / Full Preview / Edit Prompt",
+      "input_and_validation": "Sort by time or score; edited post validated for safe markup and length.",
+      "domain_operation": "queue.manage_articles_and_manual_publish",
+      "db_entities": {
+        "read": [
+          "channels",
+          "articles",
+          "usage",
+          "plans",
+          "pub_journal"
+        ],
+        "write": [
+          "articles",
+          "usage",
+          "pub_journal",
+          "posted",
+          "deeplinks"
+        ]
+      },
+      "external_side_effects": "Manual publish (`a:pub`) executes full crash-safe Telegram publication + deep-link creation.",
+      "success_feedback_and_next": "Clearly distinguishes ready, editorial-rejected, AI-retryable, exhausted, and delivery-unknown states; provides Telegram post URL once published.",
+      "error_empty_busy_expired": "Blocks duplicate manual publish if item is already in-flight or delivery-unknown.",
+      "destructive": true,
+      "confirmation_required": "a:artd (delete article) and a:qreset (reset ready queue) require explicit confirmation.",
+      "automated_test": "tests/ui/test_queue_and_manual_publish.py::test_queue_review_edit_publish_restore_reset"
+    },
+    {
+      "action_id": "CB_ADMIN_PERSONAL_AI",
+      "label_fa": "🤖 مدیریت مدلهای هوش مصنوعی شخصی",
+      "label_en": "🤖 Manage Personal AI Models",
+      "trigger": "a:myai:<ch_id> | a:myai_add:<ch_id> | a:myai_v:<m_id> | a:myai_t:<m_id> | a:myai_o:<m_id> | a:myai_e:<m_id> | a:myai_d:<m_id>",
+      "roles_allowed": [
+        "admin",
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Strict owner check: ai_models.owner_id == user_id.",
+      "parent_screen": "Channel Home Menu",
+      "destination_screen": "Personal AI List / Model Detail / Guided Add & Edit",
+      "input_and_validation": "Base URL (HTTPS or explicitly allowlisted local host), API key (or explicit unauthenticated mode), model ID, temperature (0.0-2.0), max_tokens.",
+      "domain_operation": "ai.models.manage_personal_models",
+      "db_entities": {
+        "read": [
+          "ai_models",
+          "channels"
+        ],
+        "write": [
+          "ai_models",
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "a:myai_t executes live test probe against provider; keys encrypted at rest and never echoed.",
+      "success_feedback_and_next": "Shows probe latency/status, toggles active state (`a:myai_o`), edits parameters, or deletes model.",
+      "error_empty_busy_expired": "Masks secret keys in all error outputs if provider probe fails.",
+      "destructive": true,
+      "confirmation_required": "a:myai_d requires confirmation before deleting personal AI model.",
+      "automated_test": "tests/ui/test_personal_ai_callbacks.py::test_myai_crud_probe_and_isolation"
+    },
+    {
+      "action_id": "CB_SUPER_REPORT",
+      "label_fa": "📈 گزارش جامع پلتفرم",
+      "label_en": "📈 Platform Overview Report",
+      "trigger": "s:report",
+      "roles_allowed": [
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Server-side role == 'superadmin' enforced on handler entry.",
+      "parent_screen": "Superadmin Dashboard",
+      "destination_screen": "Platform Report Screen",
+      "input_and_validation": "Exact callback 's:report' (8 bytes).",
+      "domain_operation": "superadmin.reports.get_platform_summary",
+      "db_entities": {
+        "read": [
+          "users",
+          "channels",
+          "plans",
+          "pay_requests",
+          "articles",
+          "posted",
+          "wallet",
+          "ai_usage"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Displays total users, active admins, channels, revenue by currency (TMN/USD), published posts, and AI usage.",
+      "error_empty_busy_expired": "Non-superadmin receives hard authorization denial.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_superadmin_callbacks.py::test_s_report_and_rbac"
+    },
+    {
+      "action_id": "CB_SUPER_HEALTH",
+      "label_fa": "🩺 وضعیت سلامت سیستم (Health)",
+      "label_en": "🩺 System Health Dashboard",
+      "trigger": "s:health",
+      "roles_allowed": [
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Server-side role == 'superadmin'.",
+      "parent_screen": "Superadmin Dashboard",
+      "destination_screen": "3-State System Health Screen (ok / degraded / unknown)",
+      "input_and_validation": "Exact callback 's:health' (8 bytes).",
+      "domain_operation": "superadmin.health.collect_system_health",
+      "db_entities": {
+        "read": [
+          "settings",
+          "channels",
+          "articles",
+          "pub_journal",
+          "pay_requests",
+          "notifications",
+          "ai_models"
+        ],
+        "write": []
+      },
+      "external_side_effects": "Runs DB integrity check, reads process RSS memory, and renders actionable health view.",
+      "success_feedback_and_next": "Surfaces all 16 required health metrics and highlights any degraded subsystem.",
+      "error_empty_busy_expired": "Distinguishes missing telemetry ('unknown') from healthy zero ('0').",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_superadmin_callbacks.py::test_s_health_metrics_and_states"
+    },
+    {
+      "action_id": "CB_SUPER_PLANS",
+      "label_fa": "💎 مدیریت پلنها و تعرفهها",
+      "label_en": "💎 Manage Plans & Tariffs",
+      "trigger": "s:plans | s:plan:<id> | s:plan_new | s:plan_e:<id>:<field> | s:plan_t:<id> | s:plan_free:<id> | s:plan_d:<id>",
+      "roles_allowed": [
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Server-side role == 'superadmin'.",
+      "parent_screen": "Superadmin Dashboard",
+      "destination_screen": "Plans Admin List / Plan Editor / Guided Input",
+      "input_and_validation": "Bilingual names/descriptions, duration_days, daily_post_limit, max_sources, max_channels, daily_test_limit, price_tmn, price_usd, sort_order.",
+      "domain_operation": "superadmin.plans.manage_plans",
+      "db_entities": {
+        "read": [
+          "plans",
+          "users",
+          "pay_requests"
+        ],
+        "write": [
+          "plans",
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Creates, edits, toggles, marks free plan, or safely deletes/deactivates plans.",
+      "error_empty_busy_expired": "s:plan_d deactivates instead of physically deleting when users or payments reference the plan.",
+      "destructive": true,
+      "confirmation_required": "s:plan_d requires confirmation and enforces referential safety.",
+      "automated_test": "tests/ui/test_superadmin_callbacks.py::test_s_plans_crud_and_safe_delete"
+    },
+    {
+      "action_id": "CB_SUPER_DISCOUNTS",
+      "label_fa": "🏷 مدیریت کدهای تخفیف",
+      "label_en": "🏷 Manage Discount Codes",
+      "trigger": "s:discs | s:disc:<code> | s:disc_new | s:disc_e:<code>:<field> | s:disc_t:<code> | s:disc_d:<code>",
+      "roles_allowed": [
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Server-side role == 'superadmin'.",
+      "parent_screen": "Superadmin Dashboard",
+      "destination_screen": "Discounts List / Discount Detail / Guided Input",
+      "input_and_validation": "Code (3-32 chars), percentage (1-100), expiry date/time, max_uses (0=unlimited).",
+      "domain_operation": "superadmin.discounts.manage_discounts",
+      "db_entities": {
+        "read": [
+          "discounts"
+        ],
+        "write": [
+          "discounts",
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Creates, edits, toggles, or deletes discount codes.",
+      "error_empty_busy_expired": "Duplicate codes or invalid percentages rejected.",
+      "destructive": true,
+      "confirmation_required": "s:disc_d requires confirmation before deleting discount code.",
+      "automated_test": "tests/ui/test_superadmin_callbacks.py::test_s_discounts_crud"
+    },
+    {
+      "action_id": "CB_SUPER_USERS_AND_ADMINS",
+      "label_fa": "👥 مدیریت کاربران و ادمینها",
+      "label_en": "👥 Manage Users & Channel Admins",
+      "trigger": "s:users:<p> | s:admins:<p> | s:user:<uid>:<p> | s:uplan:<uid> | s:urevoke:<uid> | s:uban:<uid> | s:umsg:<uid> | s:ureport:<uid> | s:ufree:<uid> | s:utests:<uid> | s:uposts:<uid>",
+      "roles_allowed": [
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Server-side role == 'superadmin'; cannot ban/lock out self or other superadmins.",
+      "parent_screen": "Superadmin Dashboard",
+      "destination_screen": "Paginated Users/Admins / User Inspector / Action Confirmation",
+      "input_and_validation": "Valid user_id, plan selection for s:uplan, message content for s:umsg.",
+      "domain_operation": "superadmin.users.manage_user_account",
+      "db_entities": {
+        "read": [
+          "users",
+          "plans",
+          "channels",
+          "usage",
+          "wallet",
+          "pay_requests"
+        ],
+        "write": [
+          "users",
+          "usage",
+          "plan_changes",
+          "notifications"
+        ]
+      },
+      "external_side_effects": "Outbox notification to target user on plan assignment/revocation or direct message.",
+      "success_feedback_and_next": "Executes audited admin action (assign/revoke plan, ban/unban, direct msg, reset free eligibility, reset test/post usage).",
+      "error_empty_busy_expired": "Blocks self-ban or peer-superadmin lockout.",
+      "destructive": true,
+      "confirmation_required": "s:urevoke and s:uban require explicit confirmation and write audit records.",
+      "automated_test": "tests/ui/test_superadmin_callbacks.py::test_s_users_management_and_superadmin_protection"
+    },
+    {
+      "action_id": "CB_SUPER_MODELS",
+      "label_fa": "🧠 مدیریت مدلهای هوش مصنوعی سراسری",
+      "label_en": "🧠 Manage Global AI Models",
+      "trigger": "s:models | s:model:<id> | s:model_add | s:models_test | s:model_test:<id> | s:model_t:<id> | s:model_e:<id> | s:model_d:<id> | s:model_test_pick:<id>",
+      "roles_allowed": [
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Server-side role == 'superadmin'.",
+      "parent_screen": "Superadmin Dashboard",
+      "destination_screen": "Global Models List / Model Inspector / Probe Report",
+      "input_and_validation": "Provider type, base URL, API key (encrypted at rest), model ID, priority, temperature, max_tokens.",
+      "domain_operation": "superadmin.models.manage_global_models",
+      "db_entities": {
+        "read": [
+          "ai_models"
+        ],
+        "write": [
+          "ai_models",
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Live HTTP health probes to AI providers on s:model_test / s:models_test.",
+      "success_feedback_and_next": "Manages routing priority, default test model (`s:model_test_pick`), active state, and health status.",
+      "error_empty_busy_expired": "Redacts API keys in all probe failure diagnostics.",
+      "destructive": true,
+      "confirmation_required": "s:model_d requires confirmation before deleting global model.",
+      "automated_test": "tests/ui/test_superadmin_callbacks.py::test_s_models_crud_and_probes"
+    },
+    {
+      "action_id": "CB_SUPER_PAYMENTS",
+      "label_fa": "💰 مدیریت پرداختها، تایید، رد و استرداد وجه (Refund)",
+      "label_en": "💰 Manage Payments, Approve, Reject & Refund",
+      "trigger": "s:pays | s:pay_rc:<id> | s:pay_ok:<id> | s:pay_no:<id> | s:pay_refund:<id>",
+      "roles_allowed": [
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Server-side role == 'superadmin'.",
+      "parent_screen": "Superadmin Dashboard",
+      "destination_screen": "Pending/Recent Payments List -> Receipt Inspector -> Approval/Rejection/Refund Confirmation",
+      "input_and_validation": "Callback ^s:pay_(rc|ok|no|refund):\\d+$; optional rejection/refund reason.",
+      "domain_operation": "payments.review_or_refund_payment",
+      "db_entities": {
+        "read": [
+          "pay_requests",
+          "users",
+          "plans",
+          "discounts",
+          "wallet",
+          "referrals"
+        ],
+        "write": [
+          "pay_requests",
+          "users",
+          "discounts",
+          "wallet",
+          "credit_log",
+          "plan_changes",
+          "referrals",
+          "notifications"
+        ]
+      },
+      "external_side_effects": "Durable Outbox notifications to customer, referrer, and superadmin audit log.",
+      "success_feedback_and_next": "Atomically claims payment, revalidates quote/discount/wallet, updates ledger & plan, grants idempotent referral reward, or executes policy-compliant refund.",
+      "error_empty_busy_expired": "Concurrent second click on s:pay_ok or repeated s:pay_refund is safely rejected as already processed.",
+      "destructive": true,
+      "confirmation_required": "s:pay_ok, s:pay_no, and s:pay_refund require confirmation and write immutable ledger/audit entries.",
+      "automated_test": "tests/money/test_payment_approval_and_refund_concurrency.py::test_atomic_approval_and_refund"
+    },
+    {
+      "action_id": "CB_SUPER_MANDATORY_CHANNEL",
+      "label_fa": "🔐 تنظیمات عضویت اجباری (فارسی و انگلیسی)",
+      "label_en": "🔐 Mandatory Membership Configuration (FA & EN)",
+      "trigger": "s:mand | s:mand_t:<lang> | s:mand_e:<lang>:id | s:mand_e:<lang>:user",
+      "roles_allowed": [
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Server-side role == 'superadmin'.",
+      "parent_screen": "Superadmin Dashboard",
+      "destination_screen": "Mandatory Membership Config Screen",
+      "input_and_validation": "Language in {'fa', 'en'}; valid channel negative ID or @username.",
+      "domain_operation": "superadmin.membership.configure_mandatory_channels",
+      "db_entities": {
+        "read": [
+          "settings"
+        ],
+        "write": [
+          "settings",
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Verifies bot can query target channel via Telegram getChat.",
+      "success_feedback_and_next": "Updates per-language mandatory channel ID, username, and enforcement toggle.",
+      "error_empty_busy_expired": "Warns if bot is not an admin in the configured mandatory channel.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_superadmin_callbacks.py::test_s_mand_configuration"
+    },
+    {
+      "action_id": "CB_SUPER_TEXTS",
+      "label_fa": "📝 ویرایشگر متون سیستم و بومیسازی",
+      "label_en": "📝 System Text & Localization Editor",
+      "trigger": "s:texts | s:txt:<key>:<lang> | s:txtr:<key>:<lang>",
+      "roles_allowed": [
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Server-side role == 'superadmin'.",
+      "parent_screen": "Superadmin Dashboard",
+      "destination_screen": "Localization Key List / Key Editor / Reset Confirmation",
+      "input_and_validation": "Valid localization key, lang in {'fa', 'en'}, HTML-validated replacement string.",
+      "domain_operation": "superadmin.i18n.edit_or_reset_system_text",
+      "db_entities": {
+        "read": [
+          "settings"
+        ],
+        "write": [
+          "settings",
+          "kv_cache"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Saves validated custom localization string or resets key (`s:txtr`) to built-in default.",
+      "error_empty_busy_expired": "Unbalanced/unsafe HTML tags rejected before saving.",
+      "destructive": false,
+      "confirmation_required": "s:txtr confirms before resetting customized text to default.",
+      "automated_test": "tests/ui/test_superadmin_callbacks.py::test_s_texts_edit_html_validation_and_reset"
+    },
+    {
+      "action_id": "CB_SUPER_BROADCAST",
+      "label_fa": "📣 ارسال پیام همگانی (Broadcast)",
+      "label_en": "📣 Broadcast Messaging",
+      "trigger": "s:bc | s:bc:confirm",
+      "roles_allowed": [
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Server-side role == 'superadmin'.",
+      "parent_screen": "Superadmin Dashboard",
+      "destination_screen": "Broadcast Compose -> Preview & Confirmation -> Progress Tracker",
+      "input_and_validation": "Target segment (all/fa/en/admins), message text or media.",
+      "domain_operation": "superadmin.broadcast.enqueue_broadcast_job",
+      "db_entities": {
+        "read": [
+          "users",
+          "settings"
+        ],
+        "write": [
+          "notifications",
+          "settings"
+        ]
+      },
+      "external_side_effects": "Background rate-limited batch delivery via Outbox without blocking bot event loop.",
+      "success_feedback_and_next": "Shows preview, requires explicit confirmation, and reports sent/failed/blocked progress.",
+      "error_empty_busy_expired": "Prevents overlapping concurrent broadcast jobs.",
+      "destructive": true,
+      "confirmation_required": "Mandatory preview and explicit confirmation before dispatching broadcast.",
+      "automated_test": "tests/ui/test_superadmin_callbacks.py::test_s_bc_preview_confirm_and_nonblocking_rate_limit"
+    },
+    {
+      "action_id": "CB_SUPER_GLOBAL_AUTOMATION",
+      "label_fa": "🛑 کلید اتوماسیون سراسری پلتفرم",
+      "label_en": "🛑 Global Platform Automation Switch",
+      "trigger": "s:auto | s:auto:confirm",
+      "roles_allowed": [
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Server-side role == 'superadmin'.",
+      "parent_screen": "Superadmin Dashboard",
+      "destination_screen": "Global Automation Confirmation -> Superadmin Dashboard",
+      "input_and_validation": "Exact callback 's:auto' / 's:auto:confirm'.",
+      "domain_operation": "superadmin.settings.toggle_global_automation",
+      "db_entities": {
+        "read": [
+          "settings"
+        ],
+        "write": [
+          "settings"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText; pauses/resumes scheduler ticks globally without altering per-channel enabled flags.",
+      "success_feedback_and_next": "Updates global automation state and logs operator audit event.",
+      "error_empty_busy_expired": "Requires explicit confirmation before pausing global automation.",
+      "destructive": true,
+      "confirmation_required": "Explicit confirmation required before shutting down global automation.",
+      "automated_test": "tests/ui/test_superadmin_callbacks.py::test_s_auto_distinct_from_channel_toggle"
+    },
+    {
+      "action_id": "CB_SUPER_REFERRAL_ECONOMICS",
+      "label_fa": "🤝 تنظیمات اقتصادی رفرال (درصد و سقف پاداش)",
+      "label_en": "🤝 Referral Economics Configuration",
+      "trigger": "s:ref | s:ref:pct | s:ref:cap_tmn | s:ref:cap_usd",
+      "roles_allowed": [
+        "superadmin"
+      ],
+      "ownership_and_entitlement": "Server-side role == 'superadmin'.",
+      "parent_screen": "Superadmin Dashboard",
+      "destination_screen": "Referral Economics Config Screen",
+      "input_and_validation": "Reward percentage bounded 0..50 (default 20%); cap >= 0 per currency (0 = unlimited).",
+      "domain_operation": "superadmin.referrals.update_referral_economics",
+      "db_entities": {
+        "read": [
+          "settings"
+        ],
+        "write": [
+          "settings"
+        ]
+      },
+      "external_side_effects": "Telegram editMessageText.",
+      "success_feedback_and_next": "Saves updated referral reward % and currency-specific caps (TMN & USD).",
+      "error_empty_busy_expired": "Rejects percentage < 0 or > 50 or negative cap values.",
+      "destructive": false,
+      "confirmation_required": "None",
+      "automated_test": "tests/ui/test_superadmin_callbacks.py::test_s_ref_bounds_and_currency_caps"
+    }
+  ]
+}
