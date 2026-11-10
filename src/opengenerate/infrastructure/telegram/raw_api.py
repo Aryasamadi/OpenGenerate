@@ -101,8 +101,14 @@ class RawBotApi:
         return result
 
     async def send_message(
-        self, chat_id: int | str, text: str, *, parse_mode: str | None = None,
-        reply_markup: Mapping[str, Any] | None = None, disable_web_page_preview: bool = True,
+        self,
+        chat_id: int | str,
+        text: str,
+        *,
+        parse_mode: str | None = None,
+        reply_markup: Mapping[str, Any] | None = None,
+        disable_web_page_preview: bool = True,
+        reply_to_message_id: int | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "chat_id": chat_id,
@@ -113,7 +119,90 @@ class RawBotApi:
             payload["parse_mode"] = parse_mode
         if reply_markup:
             payload["reply_markup"] = dict(reply_markup)
+        if reply_to_message_id is not None:
+            payload["reply_parameters"] = {"message_id": reply_to_message_id}
         result: dict[str, Any] = await self.call("sendMessage", payload)
+        return result
+
+    async def send_rich_message(
+        self,
+        chat_id: int | str,
+        *,
+        blocks: list[dict[str, Any]],
+        fallback_html: str,
+        reply_markup: Mapping[str, Any] | None = None,
+        disable_web_page_preview: bool = True,
+    ) -> dict[str, Any]:
+        """Attempt `sendRichMessage` first; fall back losslessly to HTML `sendMessage` if unsupported."""
+        payload: dict[str, Any] = {
+            "chat_id": chat_id,
+            "blocks": blocks,
+            "text": fallback_html,
+            "parse_mode": "HTML",
+            "link_preview_options": {"is_disabled": disable_web_page_preview},
+        }
+        if reply_markup:
+            payload["reply_markup"] = dict(reply_markup)
+        try:
+            result: dict[str, Any] = await self.call("sendRichMessage", payload)
+            return result
+        except TelegramApiError as exc:
+            if isinstance(exc, RecipientUnreachable):
+                raise
+            # Lossless fallback to standard Bot API HTML message
+            return await self.send_message(
+                chat_id,
+                fallback_html,
+                parse_mode="HTML",
+                reply_markup=reply_markup,
+                disable_web_page_preview=disable_web_page_preview,
+            )
+
+    async def send_photo(
+        self,
+        chat_id: int | str,
+        photo: str,
+        *,
+        caption: str | None = None,
+        parse_mode: str | None = "HTML",
+        reply_markup: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"chat_id": chat_id, "photo": photo}
+        if caption:
+            payload["caption"] = caption
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
+        if reply_markup:
+            payload["reply_markup"] = dict(reply_markup)
+        result: dict[str, Any] = await self.call("sendPhoto", payload)
+        return result
+
+    async def send_video(
+        self,
+        chat_id: int | str,
+        video: str,
+        *,
+        caption: str | None = None,
+        parse_mode: str | None = "HTML",
+        reply_markup: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"chat_id": chat_id, "video": video}
+        if caption:
+            payload["caption"] = caption
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
+        if reply_markup:
+            payload["reply_markup"] = dict(reply_markup)
+        result: dict[str, Any] = await self.call("sendVideo", payload)
+        return result
+
+    async def send_media_group(
+        self,
+        chat_id: int | str,
+        media: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        payload: dict[str, Any] = {"chat_id": chat_id, "media": media}
+        result: list[dict[str, Any]] = await self.call("sendMediaGroup", payload)
         return result
 
     async def get_chat_member(self, chat_id: int | str, user_id: int) -> dict[str, Any]:
@@ -130,8 +219,20 @@ class TelegramOutboxSender:
         self._api = api
 
     async def send(self, recipient_id: int, kind: str, payload: Mapping[str, Any]) -> None:
-        if kind != "text":
-            raise PermanentError(f"unsupported outbox kind '{kind}'")
+        if kind == "text":
+            await self._api.send_message(
+                recipient_id, str(payload["text"]), parse_mode=payload.get("parse_mode")
+            )
+            return
+        if kind in ("support_photo", "support_reply_photo") and payload.get("file_id"):
+            await self._api.send_photo(
+                recipient_id,
+                str(payload["file_id"]),
+                caption=str(payload.get("text") or ""),
+            )
+            return
+        # Structured notification kinds render a clean human-readable message
+        text_msg = str(payload.get("text") or f"[{kind}] {dict(payload)}")
         await self._api.send_message(
-            recipient_id, str(payload["text"]), parse_mode=payload.get("parse_mode")
+            recipient_id, text_msg, parse_mode=payload.get("parse_mode")
         )
